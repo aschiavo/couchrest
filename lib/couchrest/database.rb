@@ -163,12 +163,12 @@ module CouchRest
     # missing ids, supply one from the uuid cache.
     #
     # If called with no arguments, bulk saves the cache of documents to be bulk saved.
-    def bulk_save(docs = nil, use_uuids = true, all_or_nothing = false)
+    def bulk_save(docs = nil, use_uuids = true, all_or_nothing = false, new_edits = true)
       if docs.nil?
         docs = @bulk_save_cache
         @bulk_save_cache = []
       end
-      if (use_uuids) 
+      if (use_uuids)
         ids, noids = docs.partition{|d|d['_id']}
         uuid_count = [noids.length, @server.uuid_batch_count].max
         noids.each do |doc|
@@ -179,6 +179,9 @@ module CouchRest
       request_body = {:docs => docs}
       if all_or_nothing
         request_body[:all_or_nothing] = true
+      end
+      unless new_edits
+        request_body[:new_edits] = false
       end
       CouchRest.post "#{@root}/_bulk_docs", request_body
     end
@@ -196,7 +199,7 @@ module CouchRest
         return bulk_save if @bulk_save_cache.length >= @bulk_save_cache_limit
         return {'ok' => true} # Mimic the non-deferred version
       end
-      slug = escape_docid(doc['_id'])        
+      slug = escape_docid(doc['_id'])
       CouchRest.delete "#{@root}/#{slug}?rev=#{doc['_rev']}"
     end
 
@@ -378,7 +381,7 @@ module CouchRest
     end
 
     def escape_docid id
-      /^_design\/(.*)/ =~ id ? "_design/#{CGI.escape($1)}" : CGI.escape(id) 
+      /^_design\/(.*)/ =~ id ? "_design/#{CGI.escape($1)}" : CGI.escape(id)
     end
 
     def encode_attachments(attachments)
